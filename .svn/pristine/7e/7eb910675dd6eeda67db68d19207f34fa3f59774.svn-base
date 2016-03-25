@@ -1,0 +1,95 @@
+package view;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Observable;
+import java.util.Observer;
+
+import model.Block;
+import model.Board;
+
+public final class StatTracker implements Observer {
+
+    private final Board myBoard;
+    
+    private int myFrozenLines;
+    
+    private int myCounter;
+    
+    private int myScore;
+    
+    private int myLinesCleared;
+    
+    private int myLevel;
+    
+    public StatTracker(Board theBoard) {
+        myBoard = Objects.requireNonNull(theBoard);
+        myFrozenLines = myBoard.getFrozenBlocks().size();
+        myCounter = 0;
+        myScore = 0;
+        myLinesCleared = 0;
+        myLevel = 1;
+    }
+       
+    private void incrementScore() {
+        int bonus = 0;
+        switch (myCounter) {
+            case 2:
+                bonus = 10;
+                break;
+            case 3:
+                bonus = 30;
+                break;
+            case 4:
+                bonus = 50;
+                break;
+            default:
+                break;
+        }
+        
+        myScore += (10 * myCounter + bonus) * myLevel;
+        incrementLevel();
+    }
+    
+    private void incrementLevel() {
+        if (myLinesCleared < 101) {           
+            myLevel = ((int) myLinesCleared / 10) + 1;
+        }
+        System.out.println("Score: " + myScore + "  Lines Cleared: " 
+                           + myLinesCleared + "   Level: " + myLevel);
+    }
+    
+    public int getScore() {
+        return myScore;
+    }
+    
+    public int getLinesCleared() {
+        return myLinesCleared;
+    }
+    
+    public int getLevel() {
+        return myLevel;
+    }
+    
+    public void reset() {
+        myScore = 0;
+        myLinesCleared = 0;
+        myLevel = 1;
+    }
+    
+    @Override
+    public void update(Observable arg0, Object arg1) {
+        // TODO Auto-generated method stub
+        final int difference = myFrozenLines - myBoard.getFrozenBlocks().size();
+        if (difference > 0) {
+            myCounter += difference;
+        } else if (difference == 0 && myCounter > 0) {
+            myLinesCleared += myCounter; 
+            incrementScore();
+            myCounter = 0;
+        }
+        myFrozenLines = myBoard.getFrozenBlocks().size();
+    }
+
+}

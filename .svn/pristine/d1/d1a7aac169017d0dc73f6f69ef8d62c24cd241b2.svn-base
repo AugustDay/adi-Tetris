@@ -1,0 +1,299 @@
+package view;
+
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
+import java.util.Observable;
+import java.util.Observer;
+
+import javax.swing.Box;
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.KeyStroke;
+import javax.swing.Timer;
+
+import model.Board;
+
+public final class TetrisGUI extends JPanel implements Observer {
+
+    /** Generated serial version UID. */
+    private static final long serialVersionUID = -3356030126364510884L;
+    
+    /** The default delay (in milliseconds) for the move timer. */
+    private static final int MOVE_DELAY = 800;
+
+    /** The initial delay (in milliseconds) for the move timer. */
+    private static final int INITIAL_DELAY = 1000;
+
+    /** JFrame window which holds the content. */
+    private final JFrame myWindow;
+    
+    /** Component to represent a menu bar at the top of the window. */
+    private final JMenuBar myMenuBar;
+    
+    /** The timer that manages steps. */
+    private final Timer myStepTimer;
+    
+    /** The play-zone. */
+    private final Board myBoard;
+    
+    /** Area display game board. */
+    private final BoardDisplay myDisplay;
+    
+    private final KeyControls myKeyControls;
+    
+    /** Constructor for the Tetris GUI. */
+    public TetrisGUI() {
+        super();
+        
+        myWindow = new JFrame("Tetris");
+   //     myWindow.addKeyListener(this);
+        myMenuBar = new JMenuBar();
+        myBoard = new Board(10, 20);
+        myDisplay = new BoardDisplay(myBoard);
+        myStepTimer = new Timer(MOVE_DELAY, new StepListener());
+        myStepTimer.setInitialDelay(INITIAL_DELAY);
+        
+        myKeyControls = new KeyControls();
+    }
+    
+    /** Start method to create and display the GUI. */
+    public void start() {
+        setUpComponents();
+        
+        myWindow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        myWindow.setContentPane(this);
+        myWindow.pack();
+        myWindow.setMinimumSize(new Dimension(myWindow.getSize()));
+        myWindow.setResizable(false);
+        myWindow.setVisible(true);
+    }
+    
+    /** SetUp method to prepare the components of the GUI for display. */
+    private void setUpComponents() {
+        setLayout(new FlowLayout());
+        final ClassLoader cl = this.getClass().getClassLoader();
+        myWindow.setIconImage(
+                 new ImageIcon(cl.getResource("resources/icon large.png")).getImage());
+        
+        setUpDisplay();
+        setUpInfoArea();
+        buildMenuBar();
+        
+        myBoard.addObserver(myDisplay);
+        myBoard.addObserver(this);
+    }
+    
+    private void setUpDisplay() {
+        final Box displayBox = Box.createVerticalBox();
+        myDisplay.setSize(myDisplay.getPreferredSize());
+        displayBox.add(myDisplay);
+        add(displayBox);
+    }
+
+    private void setUpInfoArea() {
+        final Box infoBox = Box.createVerticalBox();
+        infoBox.add(setUpNextPieceDisplay());
+        infoBox.add(Box.createVerticalStrut(10));
+        infoBox.add(buildInfoBoxText());
+        add(infoBox);
+    }
+    
+    private Box setUpNextPieceDisplay() {
+        final Box nextPieceBox = Box.createVerticalBox();
+        final NextPieceDisplay npd = new NextPieceDisplay(myBoard);
+        npd.setSize(npd.getPreferredSize());
+        nextPieceBox.add(npd);
+        myBoard.addObserver(npd);
+        return nextPieceBox;
+    }
+    
+    private JTextArea buildInfoBoxText() {
+        final JTextArea textArea = new JTextArea(7, 10);
+        textArea.setPreferredSize(new Dimension(200, 200));
+        textArea.setEditable(false);
+        textArea.setWrapStyleWord(true);
+        textArea.setLineWrap(true);
+        textArea.setFocusable(false);
+
+        final String s = "CONTROLS:\nArrow UP - rotate piece\nArrow LEFT - move piece left\n" 
+                  + "Arrow RIGHT - move piece right\nArrow DOWN  - 'soft drop' the piece\n" 
+                  + "SPACE Bar   - 'hard drop' the piece\n'P' Key - pause game\n";        
+        textArea.setText(s);
+        
+        return textArea;
+        
+    }
+    
+    /** Top-level helper method to create the menu bar displayed at top of window. */
+    private void buildMenuBar() {
+        myMenuBar.add(buildFileMenu());
+//        myMenuBar.add(buildOptionsMenu());
+        myMenuBar.add(buildHelpMenu());
+        
+        myWindow.setJMenuBar(myMenuBar);
+    }
+    
+    /**
+     * Builds the Game menu of the menu bar.
+     * @return menu with some menu items.
+     */
+    private JMenu buildFileMenu() { 
+        final JMenu menu = new JMenu("Game");
+        final JMenuItem newGame = new JMenuItem("New Game", KeyEvent.VK_N);
+        final JMenuItem highScore = new JMenuItem("High Scores...", KeyEvent.VK_H);
+        final JMenuItem exitItem = new JMenuItem("Exit", KeyEvent.VK_X);
+        
+        highScore.setEnabled(false);
+        newGame.addActionListener(new ActionListener() {
+            
+            public void actionPerformed(final ActionEvent theEvent) {
+                myStepTimer.start();
+                myWindow.addKeyListener(myKeyControls);
+            }
+        });
+        
+        exitItem.addActionListener(new ActionListener() {
+          
+            public void actionPerformed(final ActionEvent theEvent) {
+                myWindow.dispatchEvent(new WindowEvent(myWindow, WindowEvent.WINDOW_CLOSING));
+            }
+        });
+        newGame.setToolTipText("Starts a new game of Tetris.");
+        highScore.setToolTipText("Displays the high scores from previous games.");
+        exitItem.setToolTipText("Exits the game.");
+
+        menu.setMnemonic(KeyEvent.VK_G);
+        newGame.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, ActionEvent.ALT_MASK));
+        highScore.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, ActionEvent.ALT_MASK));
+        exitItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X, ActionEvent.ALT_MASK));
+        
+        menu.add(newGame);
+        menu.addSeparator();
+        menu.add(highScore);
+        menu.addSeparator();
+        menu.add(exitItem);
+        return menu;
+    }
+
+    /**
+     * Builds the Help menu for the menu bar.
+     * When clicked, displays a pop-up with info about the PowerPaint program.
+     * 
+     * @return menu with some menu items.
+     */
+    private JMenu buildHelpMenu() {
+        final JMenu menu = new JMenu("Help");
+        final JMenuItem howToPlay = new JMenuItem("How to Play...");
+        final JMenuItem aboutPopUp = new JMenuItem("Version Info...");
+        
+        howToPlay.addActionListener(new ActionListener() {
+            
+            @Override
+            public void actionPerformed(final ActionEvent theEvent) { 
+                final String message = "Stack pieces to create lines.\n"
+                           + "A complete horizontal line will disappear, yielding points.\n"
+                           + "Avoid stacking pieces past the top of the playzone to survive.\n"
+                           + "Get extra points by stacking multiple lines at once!";
+                javax.swing.JOptionPane.showMessageDialog(null, message, 
+                                      "Directions", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+        aboutPopUp.addActionListener(new ActionListener() {
+            
+            @Override
+            public void actionPerformed(final ActionEvent theEvent) { 
+                final String message = "TCSS 305 Tetris, Autumn 2015.\nBy Austin Ingraham"; 
+                javax.swing.JOptionPane.showMessageDialog(null, message, 
+                                      "About", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+        
+        
+        howToPlay.setToolTipText("How to play Tetris.");
+        aboutPopUp.setToolTipText("Information about this program.");
+        
+        menu.setMnemonic(KeyEvent.VK_H);
+        howToPlay.setMnemonic(KeyEvent.VK_P);
+        aboutPopUp.setMnemonic(KeyEvent.VK_A);
+        
+        howToPlay.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, ActionEvent.ALT_MASK));
+        aboutPopUp.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A, ActionEvent.ALT_MASK));
+        
+        menu.add(howToPlay);
+        menu.addSeparator();
+        menu.add(aboutPopUp);
+        
+        return menu;
+    }
+    
+    /** Pauses the game, which stops the timer until this message is closed. */
+    private void pauseGame() {
+        myStepTimer.stop();
+        javax.swing.JOptionPane.showMessageDialog(null, "The game is paused.", 
+                                      "Pause!", JOptionPane.INFORMATION_MESSAGE);
+        myStepTimer.start();
+
+    }
+    
+    @Override
+    public void update(Observable theOberservable, Object theObject) {
+        //TODO get next piece, display it
+        if (myBoard.isGameOver()) {
+            myStepTimer.stop();
+            myWindow.removeKeyListener(myKeyControls);
+            javax.swing.JOptionPane.showMessageDialog(null, "Game over!", 
+                                                   "Game Over!", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+    
+    private class KeyControls extends KeyAdapter {
+        
+        @Override
+        public void keyPressed(final KeyEvent theEvent) {            
+            switch (theEvent.getKeyCode()) {
+                case KeyEvent.VK_DOWN:
+                    myBoard.moveDown();
+                    break;
+                case KeyEvent.VK_UP:
+                    myBoard.rotate();
+                    break;
+                case KeyEvent.VK_LEFT:
+                    myBoard.moveLeft();
+                    break;
+                case KeyEvent.VK_RIGHT:
+                    myBoard.moveRight();
+                    break;
+                case KeyEvent.VK_SPACE:
+                    myBoard.hardDrop();
+                    break;
+                case KeyEvent.VK_P:
+                    pauseGame();
+                default:
+                    break;
+            } 
+        }
+    }
+
+    
+    private class StepListener implements ActionListener {
+        
+        @Override
+        public void actionPerformed(final ActionEvent theEvent) {
+            myBoard.step();
+        }
+    }
+}
+
+

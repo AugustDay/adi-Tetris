@@ -1,0 +1,179 @@
+/*
+ * TCSS 305: Assignment 6 - Tetris
+ * StatTracker Class
+ */
+
+
+package view;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.font.FontRenderContext;
+import java.awt.font.GlyphVector;
+import java.awt.geom.Rectangle2D;
+import java.util.Objects;
+import java.util.Observable;
+import java.util.Observer;
+
+import javax.swing.JPanel;
+import javax.swing.Timer;
+import java.util.*;
+import java.math.*;
+
+import model.Board;
+
+/**
+ * Tracks and displays statistical data for the current game. 
+ * @author Austin Ingraham
+ * @version 10 December 2015
+ */
+public final class StatTracker extends JPanel implements Observer {
+
+    /** The minimum size this component should be. */
+    private static final Dimension DEFAULT_SIZE = new Dimension(100, 100);
+    
+    /** The default delay (in milliseconds) for the step timer. */
+    private static final int INITIAL_DIFFICULTY = 800;
+    
+    private static final int TEN = 10;
+    
+    /** The game board. */
+    private final Board myBoard;
+    
+    /** The timer that manages steps. */
+    private final Timer myStepTimer;
+    
+    /** Number of frozen lines currently on the board. */
+    private int myFrozenLines;
+    
+    /** Number of lines cleared. */
+    private int myCounter;
+    
+    /** Total score. */
+    private int myScore;
+    
+    /** Total number of lines cleared. */
+    private int myLinesCleared;
+    
+    /** Current difficulty level. */
+    private int myLevel;
+    
+    /**
+     * Constructs the statistics tracker. Initial values (besides level) are zero.
+     * @param theBoard the game board for this session.
+     */
+    public StatTracker(final Board theBoard, final Timer theStepTimer) {
+        super();
+        
+        myBoard = Objects.requireNonNull(theBoard);
+        myStepTimer = Objects.requireNonNull(theStepTimer);
+        myFrozenLines = myBoard.getFrozenBlocks().size();
+        
+        myCounter = 0;
+        myScore = 0;
+        myLinesCleared = 0;
+        myLevel = 0;
+        
+        setBackground(Color.WHITE);
+        setOpaque(true);
+    }
+    
+    @Override
+    public Dimension getPreferredSize() {
+        return DEFAULT_SIZE;
+    }
+    
+    public int getScore() {
+        return myScore;
+    }
+    
+    public int getLevel() {
+        return myLevel;
+    }
+    
+    public void reset() {
+        myScore = 0;
+        myLinesCleared = 0;
+        myLevel = 0;
+        myFrozenLines = myBoard.getFrozenBlocks().size(); 
+        repaint();
+    }
+    
+    /** {@inheritDoc} */
+    @Override
+    public void paintComponent(final Graphics theGraphics) {
+        super.paintComponent(theGraphics);
+        final Graphics2D g2d = (Graphics2D) theGraphics;
+        
+        g2d.setFont(new Font(Font.SERIF, Font.BOLD, 20));
+        final FontRenderContext renderContext = g2d.getFontRenderContext();
+        
+        g2d.drawString(buildText("Score", myScore), 10, 27);
+        g2d.drawString(buildText("Lines", myLinesCleared), 22, 54);
+        g2d.drawString(buildText("Level", myLevel + 1), 30, 81);
+    }
+    
+    @Override
+    public void update(final Observable theObservable, final Object theObject) {
+        if (theObservable instanceof Board) {
+            final int difference = myFrozenLines - myBoard.getFrozenBlocks().size();
+            if (difference > 0) {
+                myCounter += difference;
+            } else if (difference == 0 && myCounter > 0) {
+                myLinesCleared += myCounter; 
+                increaseScore();
+                checkLevel();
+                setDifficulty();
+                repaint();
+                myCounter = 0;
+            }
+            myFrozenLines = myBoard.getFrozenBlocks().size();
+        }
+    }
+    
+    private String buildText(final String theText, final int theValue) {
+        final String result = String.format(theText + ": %10s", theValue);
+        return result;
+    }
+    
+    /**
+     * Calculates how much the score should increase.
+     */
+    private void increaseScore() {
+        int bonus = 0;
+        final int triple = 3;
+        final int tetris = 4; //max number of lines you can clear in one go
+        switch (myCounter) {
+            case 2:
+                final int doubleBonus = TEN;
+                bonus = doubleBonus; //extra ten more than 1 less lines
+                break;
+            case triple:
+                final int tripleBonus = 30;
+                bonus = tripleBonus; //extra twenty more than 1 less lines
+                break;
+            case tetris:
+                final int tetrisBonus = 60;
+                bonus = tetrisBonus; //extra thirty more than 1 less lines
+                break;
+            default:
+                break;
+        }
+        myScore += (TEN * myCounter + bonus) * (myLevel + 1);
+    }
+    
+    private void checkLevel() {
+        final int hundredOne = 101; //if level is greater than ten, does not increase
+        if (myLinesCleared < hundredOne) {           
+            myLevel = (int) myLinesCleared / TEN;
+        }
+    }
+    
+    private void setDifficulty() {
+        final int delayDecrease = 45;
+        myStepTimer.setDelay(INITIAL_DIFFICULTY - (myLevel * delayDecrease));
+    }
+}
